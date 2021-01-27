@@ -7,84 +7,106 @@ const lcjs = require('@arction/lcjs')
 // Extract required parts from LightningChartJS.
 const {
     lightningChart,
-    SolidFill,
+    AxisTickStrategies,
     ColorRGBA,
-    UIElementBuilders,
-    UILayoutBuilders,
+    SolidFill,
+    SolidLine,
+    PointStyle3D,
     Themes
 } = lcjs
 
-// Define colors used for the Series
-const red = new SolidFill({ color: ColorRGBA(255, 100, 100) })
-const blue = new SolidFill({ color: ColorRGBA(100, 100, 255) })
-const green = new SolidFill({ color: ColorRGBA(100, 255, 100) })
+// Extract required parts from xyData.
+const {
+    createProgressiveTraceGenerator
+} = require('@arction/xydata')
 
 // Initiate chart
 const chart3D = lightningChart().Chart3D({
     // theme: Themes.dark
 })
-    .setTitle('3D Line Series')
-    .setBoundingBox({ x: 1.0, y: 1.0, z: 2.0 })
+    // Set 3D bounding box dimensions to highlight X Axis. 
+    .setBoundingBox({ x: 1.0, y: 0.5, z: 0.4 })
 
 // Set Axis titles
 chart3D.getDefaultAxisX().setTitle('Axis X')
 chart3D.getDefaultAxisY().setTitle('Axis Y')
-chart3D.getDefaultAxisZ().setTitle('Axis Z')
+chart3D.getDefaultAxisZ().setTitle('')
 
-// Add a layout UI element for checkboxes
-const layout = chart3D.addUIElement(UILayoutBuilders.Column)
-    .setPosition({ x: 90, y: 90 })
-    .setOrigin({ x: 1, y: 1 })
+// Disable Z Axis ticks as it doesn't represent any actual data dimension (only visual perspective).
+chart3D.getDefaultAxisZ().setTickStrategy( AxisTickStrategies.Empty )
 
-// Flag for camera rotation
-let rotateCamera = false
-// Add button for toggling camera rotation into the layout UI Element
-const rotateCameraButton = layout.addElement(UIElementBuilders.CheckBox)
-    .setText('Rotate camera')
-rotateCameraButton.onSwitch((_, state) => {
-    rotateCamera = state
+// Define Series configuration for simplified example modification.
+const seriesConf = [
+    {
+        name: 'Series A',
+        dataAmount: 50,
+        thickness: 10,
+        color: ColorRGBA(100, 100, 255)
+    },
+    {
+        name: 'Series B',
+        dataAmount: 50,
+        thickness: 10,
+        color: ColorRGBA(255, 100, 100)
+    },
+    {
+        name: 'Series C',
+        dataAmount: 50,
+        thickness: 10,
+        color: ColorRGBA(100, 255, 100)
+    },
+]
+
+// Set X Axis interval immediately (before all data is streamed).
+chart3D.getDefaultAxisX().setInterval(0, seriesConf.reduce((prev, cur) => Math.max(prev, cur.dataAmount), 0), false, true)
+
+// Set Z Axis interval immediately.
+chart3D.getDefaultAxisZ().setInterval(-1, 1+seriesConf.reduce((prev, cur, i) => Math.max(prev, i), 0), false, true)
+
+// Create Series and generate test data.
+let totalDataAmount = 0
+seriesConf.forEach((conf, iSeries) => {
+    const seriesName = conf.name || ''
+    const seriesDataAmount = conf.dataAmount || 100
+    const seriesZ = conf.z || iSeries
+    const seriesThickness = conf.thickness || 5
+    const seriesPointSize = conf.pointSize || seriesThickness * 1.2
+    const seriesColor = conf.color || ColorRGBA(255, 255, 255)
+    const seriesPointColor = conf.pointColor || ColorRGBA(255, 255, 255)
+    
+    const series = chart3D.addPointLineSeries()
+        .setName(seriesName)
+        .setLineStyle(new SolidLine({
+            thickness: seriesThickness,
+            fillStyle: new SolidFill({ color: seriesColor })
+        }))
+        .setPointStyle(new PointStyle3D.Triangulated({
+            size: seriesPointSize,
+            fillStyle: new SolidFill({ color: seriesPointColor }),
+            shape: 'sphere'
+        }))
+
+    createProgressiveTraceGenerator()
+        .setNumberOfPoints(seriesDataAmount)
+        .generate()
+        .toPromise()
+        .then((data) => {
+            // Map XY data to XYZ data.
+            return data.map((xy) => ({
+                x: xy.x,
+                y: xy.y,
+                z: seriesZ
+            }))
+        })
+        .then((data) => {
+            // Stream data into series very quickly.
+            setInterval(() => {
+                const batch = data.splice(0, 3)
+                if (batch.length > 0) {
+                    series.add(batch)
+                    totalDataAmount += batch.length
+                    chart3D.setTitle(`3D Line Series (${totalDataAmount} data points)`)
+                }
+            }, 30)
+        })
 })
-rotateCameraButton.setOn(rotateCamera)
-
-// Method to handle animating camera rotation.
-let cameraAngle = 0
-const dist = 1
-const animateCameraRotation = () => {
-    if (rotateCamera) {
-        chart3D.setCameraLocation(
-            {
-                x: Math.cos(cameraAngle) * dist,
-                y: 0.50,
-                z: Math.sin(cameraAngle) * dist
-            }
-        )
-        cameraAngle += 0.005
-    }
-    requestAnimationFrame(animateCameraRotation)
-}
-animateCameraRotation()
-
-// Add new series and style them
-const blueSeries = chart3D.addLineSeries()
-    .setLineStyle((lineStyle) => lineStyle.setFillStyle(blue).setThickness(30))
-const redSeries = chart3D.addLineSeries()
-    .setLineStyle((lineStyle) => lineStyle.setFillStyle(red).setThickness(30))
-const greenSeries = chart3D.addLineSeries()
-    .setLineStyle((lineStyle) => lineStyle.setFillStyle(green).setThickness(100))
-
-// Create data for the blue and red Series rotating around the green Series.
-let z = 0
-let z2 = 0
-let ang = -5
-
-for (let i = 0; i < 100; i++) {
-    cameraAngle -= 5
-    ang += 5
-    z -= 0.5
-    z2 += 0.5
-    blueSeries.add({ x: Math.sin(cameraAngle * Math.PI / 180), y: Math.cos(cameraAngle * Math.PI / 180), z })
-    redSeries.add({ x: Math.sin(ang * Math.PI / 180), y: Math.cos(ang * Math.PI / 180), z: z2 })
-}
-// Add data for the green Series.
-greenSeries.add({ x: 0, y: 0, z: -51 })
-greenSeries.add({ x: 0, y: 0, z: 51 })
