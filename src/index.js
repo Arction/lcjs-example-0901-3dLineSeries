@@ -110,3 +110,6 @@ seriesConf.forEach((conf, iSeries) => {
             }, 30)
         })
 })
+
+// Add LegendBox to chart.
+const legend = chart3D.addLegendBox().add(chart3D)
