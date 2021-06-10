@@ -1,6 +1,6 @@
-# 3D Line Series
+# JavaScript 3D Line Series
 
-![3D Line Series](3dLine.png)
+![JavaScript 3D Line Series](3dLine.png)
 
 This demo application belongs to the set of examples for LightningChart JS, data visualization library for JavaScript.
 
