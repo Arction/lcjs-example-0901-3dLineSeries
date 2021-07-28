@@ -8,10 +8,6 @@ const lcjs = require('@arction/lcjs')
 const {
     lightningChart,
     AxisTickStrategies,
-    ColorRGBA,
-    SolidFill,
-    SolidLine,
-    PointStyle3D,
     Themes
 } = lcjs
 
@@ -22,7 +18,7 @@ const {
 
 // Initiate chart
 const chart3D = lightningChart().Chart3D({
-    // theme: Themes.dark
+    // theme: Themes.darkGold
 })
     // Set 3D bounding box dimensions to highlight X Axis. 
     .setBoundingBox({ x: 1.0, y: 0.5, z: 0.4 })
@@ -40,20 +36,14 @@ const seriesConf = [
     {
         name: 'Series A',
         dataAmount: 50,
-        thickness: 10,
-        color: ColorRGBA(100, 100, 255)
     },
     {
         name: 'Series B',
-        dataAmount: 50,
-        thickness: 10,
-        color: ColorRGBA(255, 100, 100)
+        dataAmount: 50
     },
     {
         name: 'Series C',
-        dataAmount: 50,
-        thickness: 10,
-        color: ColorRGBA(100, 255, 100)
+        dataAmount: 50
     },
 ]
 
@@ -69,22 +59,9 @@ seriesConf.forEach((conf, iSeries) => {
     const seriesName = conf.name || ''
     const seriesDataAmount = conf.dataAmount || 100
     const seriesZ = conf.z || iSeries
-    const seriesThickness = conf.thickness || 5
-    const seriesPointSize = conf.pointSize || seriesThickness * 1.2
-    const seriesColor = conf.color || ColorRGBA(255, 255, 255)
-    const seriesPointColor = conf.pointColor || ColorRGBA(255, 255, 255)
     
     const series = chart3D.addPointLineSeries()
         .setName(seriesName)
-        .setLineStyle(new SolidLine({
-            thickness: seriesThickness,
-            fillStyle: new SolidFill({ color: seriesColor })
-        }))
-        .setPointStyle(new PointStyle3D.Triangulated({
-            size: seriesPointSize,
-            fillStyle: new SolidFill({ color: seriesPointColor }),
-            shape: 'sphere'
-        }))
 
     createProgressiveTraceGenerator()
         .setNumberOfPoints(seriesDataAmount)
@@ -112,4 +89,10 @@ seriesConf.forEach((conf, iSeries) => {
 })
 
 // Add LegendBox to chart.
-const legend = chart3D.addLegendBox().add(chart3D)
+const legend = chart3D.addLegendBox()
+    // Dispose example UI elements automatically if they take too much space. This is to avoid bad UI on mobile / etc. devices.
+    .setAutoDispose({
+        type: 'max-width',
+        maxWidth: 0.30,
+    })
+    .add(chart3D)
